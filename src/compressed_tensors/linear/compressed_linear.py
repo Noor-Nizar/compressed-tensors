@@ -83,6 +83,8 @@ class CompressedLinear(Linear):
 
     def update_decompressed(self):
         uncompressed_weight = torch.nn.Parameter(self.compressor.decompress_module(self), requires_grad=True)
+        if hasattr(self, "uncompressed_weight"):
+            delattr(self, "uncompressed_weight")
         self.register_parameter("uncompressed_weight", uncompressed_weight)
 
         def store_grad_hook(grad):
