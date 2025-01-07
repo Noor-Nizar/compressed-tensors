@@ -78,11 +78,12 @@ class CompressedLinear(Linear):
                 module, CompressedLinear
             )
 
+        module.uncompressed_weight = None
         return module
 
     def update_decompressed(self):
-        self.uncompressed_weight = self.compressor.decompress_module(self)
-        self.uncompressed_weight.requires_grad = True
+        uncompressed_weight = torch.nn.Parameter(self.compressor.decompress_module(self), requires_grad=True)
+        self.register_parameter("uncompressed_weight", uncompressed_weight)
 
         def store_grad_hook(grad):
             self.uncompressed_weight_grad = grad.to('cpu')
