@@ -38,7 +38,6 @@ class CompressedLinear(Linear):
     """
 
     @classmethod
-    @torch.no_grad()
     def from_linear(
         cls,
         module: Linear,
