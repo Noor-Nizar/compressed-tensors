@@ -79,11 +79,38 @@ class CompressedLinear(Linear):
                 module, CompressedLinear
             )
 
+        # Remove any leftover references
+        if hasattr(module, 'uncompressed_weight'):
+            del module._parameters['uncompressed_weight']
+        if hasattr(module, 'uncompressed_weight_grad'):
+            del module.uncompressed_weight_grad
+
+        # Decompress once, store as an attribute
+        uncompressed_weight = module.compressor.decompress_module(module)
+        uncompressed_weight.requires_grad = True
+
+        # store the gradient from this uncompressed weight in a separate variable (on CPU).
+        def store_grad_hook(grad):
+            # Create a CPU copy of the gradient
+            module.uncompressed_weight_grad = grad.to('cpu')
+            # return grad
+
+        # Attach the hook to store the gradient for uncompressed_weight
+        uncompressed_weight.register_hook(store_grad_hook)
+
+        setattr(module, 'uncompressed_weight', uncompressed_weight)
+
         return module
 
+    def update_decompressed(self):
+        self.uncompressed_weight = self.compressor.decompress_module(self)
+        self.uncompressed_weight.requires_grad = True
+
+        def store_grad_hook(grad):
+            self.uncompressed_weight_grad = grad.to('cpu')
+            # return grad
+
+        self.uncompressed_weight.register_hook(store_grad_hook)
+
     def forward(self, input: Tensor) -> Tensor:
-        """
-        Decompresses the weight, then runs the wrapped forward pass
-        """
-        uncompressed_weight = self.compressor.decompress_module(self)
-        return linear(input, uncompressed_weight, self.bias)
+        return linear(input, self.uncompressed_weight, self.bias)
