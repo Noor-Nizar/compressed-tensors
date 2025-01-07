@@ -101,14 +101,4 @@ class CompressedLinear(Linear):
         self.register_parameter("uncompressed_weight", uncompressed_weight)
 
     def forward(self, input: Tensor) -> Tensor:
-        """
-        Decompresses the weight, then runs the wrapped forward pass
-        """
-        if self.quantization_status == QuantizationStatus.COMPRESSED:
-            weight_data = self.compressor.decompress_module(self)
-            param = Parameter(weight_data, requires_grad=False)
-            register_offload_parameter(self, "weight", param)
-
-            self.quantization_status = QuantizationStatus.FROZEN
-
-        return linear(input, self.weight, self.bias)
+        return linear(input, self.uncompressed_weight, self.bias)
