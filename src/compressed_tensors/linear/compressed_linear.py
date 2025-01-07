@@ -79,27 +79,6 @@ class CompressedLinear(Linear):
                 module, CompressedLinear
             )
 
-        # Remove any leftover references
-        if hasattr(module, 'uncompressed_weight'):
-            del module._parameters['uncompressed_weight']
-        if hasattr(module, 'uncompressed_weight_grad'):
-            del module.uncompressed_weight_grad
-
-        # Decompress once, store as an attribute
-        uncompressed_weight = module.compressor.decompress_module(module)
-        uncompressed_weight.requires_grad = True
-
-        # store the gradient from this uncompressed weight in a separate variable (on CPU).
-        def store_grad_hook(grad):
-            # Create a CPU copy of the gradient
-            module.uncompressed_weight_grad = grad.to('cpu')
-            # return grad
-
-        # Attach the hook to store the gradient for uncompressed_weight
-        uncompressed_weight.register_hook(store_grad_hook)
-
-        setattr(module, 'uncompressed_weight', uncompressed_weight)
-
         return module
 
     def update_decompressed(self):
