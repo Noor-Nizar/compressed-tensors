@@ -38,6 +38,7 @@ class CompressedLinear(Linear):
     """
 
     @classmethod
+    @torch.no_grad()
     def from_linear(
         cls,
         module: Linear,
@@ -78,20 +79,23 @@ class CompressedLinear(Linear):
                 module, CompressedLinear
             )
 
-        module.uncompressed_weight = None
         return module
 
-    def update_decompressed(self):
-        uncompressed_weight = torch.nn.Parameter(self.compressor.decompress_module(self), requires_grad=True)
-        if hasattr(self, "uncompressed_weight"):
-            delattr(self, "uncompressed_weight")
-        self.register_parameter("uncompressed_weight", uncompressed_weight)
-
-        def store_grad_hook(grad):
-            self.uncompressed_weight_grad = grad.to('cpu')
-            # return grad
-
-        self.uncompressed_weight.register_hook(store_grad_hook)
-
     def forward(self, input: Tensor) -> Tensor:
-        return linear(input, self.uncompressed_weight, self.bias)
+        """
+        Decompresses the weight, then runs the wrapped forward pass, storing the gradient
+        """
+        # Decompress the weight without storing it as a parameter
+        uncompressed_weight = self.compressor.decompress_module(self)
+        uncompressed_weight.requires_grad = True
+
+        # Define a hook to save the gradient w.r.t. uncompressed_weight
+        def save_grad(grad):
+#             self.uncompressed_weight_grad = grad
+            self.uncompressed_weight_grad = grad.to('cpu') ## ! saving on cpu
+
+        uncompressed_weight.register_hook(save_grad)
+
+        # Perform the forward pass using the uncompressed weight
+        output = linear(input, uncompressed_weight, self.bias)
+        return output
