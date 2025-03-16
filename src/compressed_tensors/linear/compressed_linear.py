@@ -87,11 +87,5 @@ class CompressedLinear(Linear):
             delattr(self, "uncompressed_weight")
         self.register_parameter("uncompressed_weight", uncompressed_weight)
 
-        def store_grad_hook(grad):
-            self.uncompressed_weight_grad = grad.to('cpu')
-            # return grad
-
-        self.uncompressed_weight.register_hook(store_grad_hook)
-
     def forward(self, input: Tensor) -> Tensor:
         return linear(input, self.uncompressed_weight, self.bias)
